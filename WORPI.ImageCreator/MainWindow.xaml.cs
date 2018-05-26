@@ -535,7 +535,27 @@ namespace WORPI.ImageCreator
         }
 
         private void signWindowsFiles() {
+            Process cmd = new Process();
+            cmd.StartInfo.FileName = "cmd.exe";
+            cmd.StartInfo.Verb = "runas";
 
+            cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+            cmd.StartInfo.UseShellExecute = false;
+            cmd.StartInfo.RedirectStandardOutput = true;
+            cmd.StartInfo.RedirectStandardInput = true;
+            cmd.EnableRaisingEvents = true;
+
+            cmd.Start();
+            cmd.StandardInput.WriteLine("bcdedit /store " + @"E:\EFI\Microsoft\Boot\bcd" + " /set {default} testsigning on");
+            cmd.StandardInput.WriteLine("bcdedit /store " + @"E:\EFI\Microsoft\Boot\bcd" + " /set {default} nointegritychecks on");
+
+            Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+
+            cmd.WaitForExit();
+            if (cmd.HasExited)
+            {
+                cleanUp();
+            }
         }
 
         private void cleanUp() {
