@@ -143,15 +143,6 @@ namespace WORPI.ImageCreator
 
         private void compileWindowsButton_Click(object sender, RoutedEventArgs e)
         {
-            setupTempFolderStructure();
-        }
-
-        // Creates a Folder Structure for Temp Directory
-        private void setupTempFolderStructure() {
-
-
-            statusTextBlock.Text = "Setting Up Structure";
-           
             // Sets up Paths for required folders
             var tempUEFIPath = System.IO.Path.Combine(appPath, "temp", "UEFI");
             var tempUUPPath = System.IO.Path.Combine(appPath, "temp", "UUP");
@@ -166,12 +157,22 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
+            //setupTempFolderStructure();
+            addUEFIFilesToBoot();
+        }
+
+        // Creates a Folder Structure for Temp Directory
+        private void setupTempFolderStructure() {
+
+
+            statusTextBlock.Text = "Setting Up Structure";
+
             // Creates Directories for Required Folders+
-            Directory.CreateDirectory(tempUEFIPath);
-            Directory.CreateDirectory(tempUUPPath);
-            Directory.CreateDirectory(tempSystem32Path);
-            Directory.CreateDirectory(tempExtractedFoldersPath);
-            Directory.CreateDirectory(tempImagePath);
+            Directory.CreateDirectory(tempFolders[0]);
+            Directory.CreateDirectory(tempFolders[1]);
+            Directory.CreateDirectory(tempFolders[2]);
+            Directory.CreateDirectory(tempFolders[3]);
+            Directory.CreateDirectory(tempFolders[4]);
 
             imageProgressBar.Value = 5;
             percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
@@ -456,102 +457,103 @@ namespace WORPI.ImageCreator
             cmd.WaitForExit();
             if (cmd.HasExited)
             {
-                
+                addWindowsFilesToWindows();
             }
-            /*cmd.StartInfo.RedirectStandardInput = true;
-            cmd.StartInfo.RedirectStandardOutput = true;
-            //cmd.StartInfo.CreateNoWindow = true;
-            cmd.StartInfo.UseShellExecute = false;
-            cmd.Start();
-
-            cmd.StandardInput.WriteLine("cd " + cdPath);
-            cmd.StandardInput.WriteLine("dism /mount-image /imagefile:install.wim /Index:1 /MountDir:Image");
-            cmd.StandardInput.WriteLine("dism /image:Image /add-driver /driver:system32 /recurse /forceunsigned");
-            cmd.StandardInput.WriteLine("dism /unmount-wim /mountdir:Image /commit");
-            //cmd.StandardInput.WriteLine("dism /mount-image /imagefile:install.wim /Index:1 /MountDir:Image");
-            cmd.StandardInput.Flush();
-            cmd.StandardInput.Close();
-            cmd.WaitForExit();*/
         }
 
-        private void createWindowsOnRaspiInstallerImageFile() {
-            /*long diskUEFISize = 300 * 1024 * 1024; //300MB
-            long diskWindowsSize = 16 * 1024 * 1024 * 1024; //8GB
-            using (Stream vhdStream = File.Create(System.IO.Path.Combine(appPath, "temp", "windowsOnRaspi.vhd")))
+        private void addWindowsFilesToWindows()
+        {
+            var wimpath = System.IO.Path.Combine(appPath, "temp", "install.wim");
+            var cdPath = System.IO.Path.Combine(appPath, "temp");
+
+            string[] dismArgs = new string[3];
+            dismArgs[0] = "/apply-image /imagefile:install.wim /index:1 /applydir:" + @"I:\";
+            //dismArgs[1] = "/image:Image /add-driver /driver:system32 /recurse /forceunsigned";
+            //dismArgs[2] = "/unmount-wim /mountdir:Image /commit";
+
+            //if () 
+            if (File.Exists(wimpath))
             {
-                Disk UEFIDisk = Disk.Initialize(vhdStream, Ownership.Dispose, diskUEFISize);
-                Disk WindowsDisk = Disk.Initialize(vhdStream, Ownership.Dispose, diskWindowsSize);
-                BiosPartitionTable.Initialize(UEFIDisk, WellKnownPartitionType.WindowsFat);
-                BiosPartitionTable.Initialize(WindowsDisk, WellKnownPartitionType.WindowsNtfs);
-                VolumeManager vm = new VolumeManager();
-                vm.AddDisk(UEFIDisk);
-                vm.AddDisk(WindowsDisk);
+                Debug.WriteLine("install.wim Path Exists: " + true);
+                Process cmd = new Process();
+                cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
+                cmd.StartInfo.WorkingDirectory = cdPath;
+                cmd.StartInfo.Verb = "runas";
 
-                using (FatFileSystem fs = FatFileSystem.FormatPartition(UEFIDisk, 0, "BOOT"))
+                foreach (string arg in dismArgs)
                 {
-                    //fs.CreateDirectory(@"TestDir\CHILD");
-                    // do other things with the file system...
-                    
-                    //var uefiPath = System.IO.Path.Combine(appPath, "temp", "UEFI");
-                    //fs.MoveFile(uefiPath, fs.Root.ToString());
-                    //fs.CreateDirectory(uefiPath);
-                    
+                    cmd.StartInfo.Arguments += arg;
                 }
 
-                using (NtfsFileSystem fs = NtfsFileSystem.Format(vm.GetLogicalVolumes()[1], "Windows"))
-                {
+                cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                cmd.StartInfo.UseShellExecute = false;
+                cmd.StartInfo.RedirectStandardOutput = true;
+                cmd.EnableRaisingEvents = true;
 
-                    //fs.CreateDirectory(@"externalFiles");
-                    
+                cmd.Start();
+
+                Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+
+                cmd.WaitForExit();
+                if (cmd.HasExited)
+                {
+                    addUEFIFilesToBoot();
                 }
-            }*/
+
+                Debug.WriteLine("CD Path: " + cdPath);
+            }
+            else
+            {
+                Debug.WriteLine("install.wim Path Exists: " + false);
+            }
+        }
+
+        private void addUEFIFilesToBoot()
+        {
+            CopyFilesRecursively(new DirectoryInfo(tempFolders[0]), new DirectoryInfo("P:/"));
+
+            Process cmd = new Process();
+            cmd.StartInfo.FileName = "cmd.exe";
+            cmd.StartInfo.Verb = "runas";
+
+            cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+            cmd.StartInfo.UseShellExecute = false;
+            cmd.StartInfo.RedirectStandardOutput = true;
+            cmd.StartInfo.RedirectStandardInput = true;
+            cmd.EnableRaisingEvents = true;
+
+            cmd.Start();
+            cmd.StandardInput.WriteLine("bcdboot" + @"i:\windows" + " /s " + @"p:\" + " /f UEFI");
+
+            Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+
+            cmd.WaitForExit();
+            if (cmd.HasExited)
+            {
+                signWindowsFiles();
+            }
+        }
+
+        private void signWindowsFiles() {
+
         }
 
         private void cleanUp() {
 
         }
 
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
-        public static extern int GetDriveType(string lpRootPathName);
-
-        private static bool IsRunAsAdmin()
-        {
-            WindowsIdentity id = WindowsIdentity.GetCurrent();
-            WindowsPrincipal principal = new WindowsPrincipal(id);
-
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);
-        }
-
         public static void CopyFilesRecursively(DirectoryInfo source, DirectoryInfo target)
         {
-            foreach (DirectoryInfo dir in source.GetDirectories())
-                CopyFilesRecursively(dir, target.CreateSubdirectory(dir.Name));
-            foreach (FileInfo file in source.GetFiles())
-                file.CopyTo(System.IO.Path.Combine(target.FullName, file.Name));
-        }
-
-        private static void ExecuteCommand(string command)
-        {
-            var processInfo = new ProcessStartInfo("cmd.exe", "/c " + command);
-            processInfo.CreateNoWindow = true;
-            processInfo.UseShellExecute = false;
-            processInfo.RedirectStandardError = true;
-            processInfo.RedirectStandardOutput = true;
-
-            var process = Process.Start(processInfo);
-
-            process.OutputDataReceived += (object sender, DataReceivedEventArgs e) =>
-                Console.WriteLine("output>>" + e.Data);
-            process.BeginOutputReadLine();
-
-            process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
-                Console.WriteLine("error>>" + e.Data);
-            process.BeginErrorReadLine();
-
-            process.WaitForExit();
-
-            Console.WriteLine("ExitCode: {0}", process.ExitCode);
-            process.Close();
+            try
+            {
+                foreach (DirectoryInfo dir in source.GetDirectories())
+                    CopyFilesRecursively(dir, target.CreateSubdirectory(dir.Name));
+                foreach (FileInfo file in source.GetFiles())
+                    file.CopyTo(System.IO.Path.Combine(target.FullName, file.Name));
+            }
+            catch {
+                Debug.WriteLine("Somewthing Went Wrong!!");
+            }
         }
     }
 }
