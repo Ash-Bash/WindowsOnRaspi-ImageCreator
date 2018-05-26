@@ -41,7 +41,7 @@ namespace WORPI.ImageCreator
         private string raspiPkgPath;
         private string winOnRaspiPath;
 
-        private DiskItemObject[] diskItems = new DiskItemObject[1];
+        private List<DiskItemObject> diskItemsList = new List<DiskItemObject>();
         private DiskItemObject selectedDisk;
 
         private string[] tempFolders;
@@ -82,14 +82,14 @@ namespace WORPI.ImageCreator
                     mediaType = "Unknown Media Type";
                 }
 
-                diskItems.Append(new DiskItemObject(index, model, mediaType, size.ToString() + "GB"));
+                diskItemsList.Add(new DiskItemObject(index, model, mediaType, size.ToString() + "GB"));
                 sdCardPathComboBox.Items.Add("Disk " + index + " - " + model + " - " + mediaType + " - " + size.ToString() + "GB");
             }
 
             if (sdCardPathComboBox.Items.Count > 0)
             {
                 sdCardPathComboBox.SelectedIndex = 0;
-                selectedDisk = diskItems[sdCardPathComboBox.SelectedIndex];
+                selectedDisk = diskItemsList.ToArray()[sdCardPathComboBox.SelectedIndex];
 
             }
         }
@@ -97,7 +97,8 @@ namespace WORPI.ImageCreator
         private void sdCardPathComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var combobox = (ComboBox)sender;
-            selectedDisk = diskItems[combobox.SelectedIndex];
+            selectedDisk = diskItemsList.ToArray()[combobox.SelectedIndex];
+            Debug.WriteLine("Selected Disk: " + selectedDisk);
 
         }
 
@@ -429,33 +430,26 @@ namespace WORPI.ImageCreator
             cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "diskpart.exe");
             cmd.StartInfo.Verb = "runas";
 
-            string[] diskPartArgs = new string[3];
-            diskPartArgs[0] = "select disk " + selectedDisk.diskNumber;
-            diskPartArgs[1] = "create partition primary size=400";
-            diskPartArgs[2] = "select partition 1";
-            diskPartArgs[3] = "active";
-            diskPartArgs[4] = "format fs=fat32 quick label=BOOT";
-            diskPartArgs[5] = "assign letter=P";
-            diskPartArgs[6] = "select disk " + selectedDisk.diskNumber;
-            diskPartArgs[7] = "create partition primary";
-            diskPartArgs[8] = "select partition 2";
-            diskPartArgs[9] = "active";
-            diskPartArgs[10] = "format fs=ntfs quick label=Windows";
-            diskPartArgs[11] = "assign letter=I";
-            diskPartArgs[12] = "exit";
-
-
-            foreach (string arg in diskPartArgs)
-            {
-                cmd.StartInfo.Arguments += arg;
-            }
-
             cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
             cmd.StartInfo.UseShellExecute = false;
             cmd.StartInfo.RedirectStandardOutput = true;
+            cmd.StartInfo.RedirectStandardInput = true;
             cmd.EnableRaisingEvents = true;
 
             cmd.Start();
+            cmd.StandardInput.WriteLine("select disk " + selectedDisk.diskNumber);
+            cmd.StandardInput.WriteLine("clean");
+            cmd.StandardInput.WriteLine("create partition primary size=400");
+            cmd.StandardInput.WriteLine("create partition primary");
+            cmd.StandardInput.WriteLine("select partition 1");
+            cmd.StandardInput.WriteLine("active");
+            cmd.StandardInput.WriteLine("format fs=fat32 quick label=BOOT");
+            cmd.StandardInput.WriteLine("assign letter=P");
+            cmd.StandardInput.WriteLine("select partition 2");
+            cmd.StandardInput.WriteLine("active");
+            cmd.StandardInput.WriteLine("format fs=ntfs quick label=Windows");
+            cmd.StandardInput.WriteLine("assign letter=I");
+            cmd.StandardInput.WriteLine("exit");
 
             Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
