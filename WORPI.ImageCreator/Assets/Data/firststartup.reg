@@ -1,0 +1,25 @@
+Windows Registry Editor Version 5.00
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State]
+"ImageState"="IMAGE_STATE_COMPLETE"
+[HKEY_LOCAL_MACHINE\SYSTEM\Setup]
+"SetupPhase"=dword:00000000
+"SetupType"=dword:00000000
+"OOBEInProgress"=dword:00000000
+[HKEY_LOCAL_MACHINE\SYSTEM\Setup\Status\ChildCompletion]
+"oobeldr.exe"=dword:00000003
+"SetupFinalTasks"=dword:00000003
+[HKEY_LOCAL_MACHINE\SYSTEM\Setup\Timers\OobeBootPerf]
+"StartLow"=dword:ee3f4a6f
+"StartHigh"=dword:01d16b34
+"StopLow"=dword:aa04f836
+"StopHigh"=dword:01d16b35
+[HKEY_LOCAL_MACHINE\SYSTEM\Setup\Timers\OobeCmdPerf]
+"StartLow"=dword:0841a3a7
+"StartHigh"=dword:01d16b35
+"StopLow"=dword:956f7fdf
+"StopHigh"=dword:01d16b35
+[HKEY_LOCAL_MACHINE\SYSTEM\Setup\Timers\OobeExePerf]
+"StartLow"=dword:0846686d
+"StartHigh"=dword:01d16b35
+"StopLow"=dword:aa02967b
+"StopHigh"=dword:01d16b35

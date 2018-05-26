@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace WindowsOnRPIImageCreator.Properties
+namespace WORPI.ImageCreator.Properties
 {
 
 
