@@ -158,6 +158,7 @@ namespace WORPI.ImageCreator
             tempFolders[4] = tempImagePath;
 
             setupTempFolderStructure();
+            //addUEFIFilesToBoot();
         }
 
         // Creates a Folder Structure for Temp Directory
@@ -567,19 +568,27 @@ namespace WORPI.ImageCreator
 
             if (hasFiles)
             {
+
+                string[] bcdArgs = new string[3];
+                bcdArgs[0] = "bcdboot " + @"i:\windows /s p: /f UEFI";
+
                 Process cmd = new Process();
                 cmd.StartInfo.FileName = "cmd.exe";
-                cmd.StartInfo.RedirectStandardInput = true;
-                cmd.StartInfo.RedirectStandardOutput = true;
-                cmd.StartInfo.CreateNoWindow = true;
-                cmd.StartInfo.UseShellExecute = false;
+                cmd.StartInfo.Verb = "runas";
+                cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                cmd.StartInfo.UseShellExecute = true;
+                cmd.StartInfo.RedirectStandardOutput = false;
+                cmd.EnableRaisingEvents = true;
+
+                foreach (string arg in bcdArgs)
+                {
+                    cmd.StartInfo.Arguments += arg;
+                }
+
                 cmd.Start();
 
-                cmd.StandardInput.WriteLine("bcdboot " + @"i:\windows /s p: /f UEFI");
-                Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+                //Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
-                cmd.StandardInput.Flush();
-                cmd.StandardInput.Close();
                 cmd.WaitForExit();
 
                 if (cmd.HasExited)
@@ -591,19 +600,25 @@ namespace WORPI.ImageCreator
 
         // Signs Windows Files in the UEFI Partition  (Still Needs work on)
         private void signWindowsFiles() {
+
+            string[] dismArgs = new string[3];
+            dismArgs[0] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} testsigning on";
+            dismArgs[1] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} nointegritychecks on";
+
             Process cmd = new Process();
             cmd.StartInfo.FileName = "cmd.exe";
             cmd.StartInfo.Verb = "runas";
-
             cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
             cmd.StartInfo.UseShellExecute = false;
             cmd.StartInfo.RedirectStandardOutput = true;
-            cmd.StartInfo.RedirectStandardInput = true;
             cmd.EnableRaisingEvents = true;
 
+            foreach (string arg in dismArgs)
+            {
+                cmd.StartInfo.Arguments += arg;
+            }
+
             cmd.Start();
-            cmd.StandardInput.WriteLine("bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd" + " /set {default} testsigning on");
-            cmd.StandardInput.WriteLine("bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd" + " /set {default} nointegritychecks on");
 
             Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
