@@ -586,7 +586,7 @@ namespace WORPI.ImageCreator
 
                 cmd.Start();
 
-                cmd.StandardInput.WriteLine("bcdboot " + @"i:\windows /s p: /f UEFI");
+                cmd.StandardInput.WriteLine(@"bcdboot i:\windows /s p: /f UEFI");
 
                 Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
@@ -603,8 +603,8 @@ namespace WORPI.ImageCreator
         private void signWindowsFiles() {
 
             string[] bcdArgs = new string[3];
-            bcdArgs[0] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} testsigning on";
-            bcdArgs[1] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} nointegritychecks on";
+            bcdArgs[0] = @"bcdedit /store P:\EFI\Microsoft\Boot\bcd /set {default} testsigning on";
+            bcdArgs[1] = @"bcdedit /store P:\EFI\Microsoft\Boot\bcd /set {default} nointegritychecks on";
 
             Process cmd = new Process();
             cmd.StartInfo.FileName = "cmd.exe";
