@@ -25,7 +25,9 @@ using DiscUtils.Partitions;
 using DiscUtils.Raw;
 using DiscUtils;
 using System.Management;
+using System.Management.Automation;
 using System.Runtime.InteropServices;
+using System.Management.Automation.Runspaces;
 
 namespace WORPI.ImageCreator
 {
@@ -155,7 +157,8 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
-            setupTempFolderStructure();
+            //setupTempFolderStructure();
+            copyInstallWimFile();
         }
 
         // Creates a Folder Structure for Temp Directory
@@ -251,20 +254,57 @@ namespace WORPI.ImageCreator
         }
 
         // Copies the install.wim file from the ISO File (Still Needs work on)
-        private void copyInstallWimFile() {
+        private async void copyInstallWimFile() {
             DirectoryInfo extrFolders = new DirectoryInfo(tempFolders[1]);
             FileInfo[] fileInfo = extrFolders.GetFiles();
 
-            using (FileStream isoStream = File.OpenRead(System.IO.Path.Combine(tempFolders[1], fileInfo[0].ToString())))
-            {
-                CDReader cd = new CDReader(isoStream, true);
-                //cd.CopyFile(@"sources\install.wim", System.IO.Path.Combine(appPath, "temp"));
-                Stream fileStream = cd.OpenFile(@"sources\install.wim", FileMode.Open);
-                // Use fileStream...
-                using (var stream = new FileStream(System.IO.Path.Combine(appPath, "temp"), FileMode.Create, FileAccess.Write))
+            Debug.WriteLine(System.IO.Path.Combine(tempFolders[1], fileInfo[0].ToString()));
+            var isoPath = System.IO.Path.Combine(tempFolders[1], fileInfo[0].ToString());
+            string driveLetter = null;
+
+            var isoMountTask = Task.Run(() => { 
+                using (var ps = PowerShell.Create())
                 {
-                    fileStream.CopyTo(stream);
+                    var command = ps.AddCommand("Mount-DiskImage");
+                    command.AddParameter("ImagePath", isoPath);
+                    command.Invoke();
+                    ps.Commands.Clear();
+
+                    //Get Drive Letter ISO Image Was Mounted To
+                    var runSpace = ps.Runspace;
+                    var pipeLine = runSpace.CreatePipeline();
+                    var getImageCommand = new Command("Get-DiskImage");
+                    getImageCommand.Parameters.Add("ImagePath", isoPath);
+                    pipeLine.Commands.Add(getImageCommand);
+                    pipeLine.Commands.Add("Get-Volume");
+
+                    foreach (PSObject psObject in pipeLine.Invoke())
+                    {
+                        if (psObject != null)
+                        {
+                            driveLetter = psObject.Members["DriveLetter"].Value.ToString();
+                            Console.WriteLine("Mounted On Drive: " + driveLetter);
+                        }
+                    }
                 }
+            });
+
+            await isoMountTask;
+
+            if (File.Exists(driveLetter + @":\sources\install.wim"))
+            {
+                Debug.WriteLine("File Exists: " + true);
+                Debug.WriteLine("File Path: " + driveLetter + @":\sources\install.wim");
+
+                var copyFileTask = Task.Run(() =>
+                {
+                    File.Copy(driveLetter + @":\sources\install.wim", System.IO.Path.Combine(appPath, "temp", "install.wim"));
+                }).ContinueWith(c => {
+                    copyRaspiPackages();
+                });
+            }
+            else {
+                Debug.WriteLine("File Exists: " + false);
             }
         }
 
@@ -576,8 +616,23 @@ namespace WORPI.ImageCreator
         }
 
         // Deletes Temp dirs and Files and Unmounts any Images that were mounted when installing files on the SD Card (Still Needs work on)
-        private void cleanUp() {
+        private async void cleanUp() {
+            DirectoryInfo extrFolders = new DirectoryInfo(tempFolders[1]);
+            FileInfo[] fileInfo = extrFolders.GetFiles();
 
+            var isoPath = System.IO.Path.Combine(tempFolders[1], fileInfo[0].ToString());
+            var isoMountTask = Task.Run(() => {
+                using (var ps = PowerShell.Create())
+                {
+                    //Unmount Via Image File Path
+                    var command = ps.AddCommand("Dismount-DiskImage");
+                    command.AddParameter("ImagePath", isoPath);
+                    ps.Invoke();
+                    ps.Commands.Clear();
+                }
+            });
+
+            await isoMountTask;
         }
 
         // Allows Copying files and Folders from one Dir to Another
@@ -590,8 +645,8 @@ namespace WORPI.ImageCreator
                 foreach (FileInfo file in source.GetFiles())
                     file.CopyTo(System.IO.Path.Combine(target.FullName, file.Name));
             }
-            catch {
-                Debug.WriteLine("Somewthing Went Wrong!!");
+            catch (Exception e){
+                Debug.WriteLine("Somewthing Went Wrong!! " + e);
             }
         }
     }
