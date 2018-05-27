@@ -157,8 +157,8 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
-            //setupTempFolderStructure();
-            addUEFIFilesToBoot();
+            setupTempFolderStructure();
+            //addUEFIFilesToBoot();
         }
 
         // Creates a Folder Structure for Temp Directory
@@ -602,24 +602,25 @@ namespace WORPI.ImageCreator
         // Signs Windows Files in the UEFI Partition  (Still Needs work on)
         private void signWindowsFiles() {
 
-            string[] dismArgs = new string[3];
-            dismArgs[0] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} testsigning on";
-            dismArgs[1] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} nointegritychecks on";
+            string[] bcdArgs = new string[3];
+            bcdArgs[0] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} testsigning on";
+            bcdArgs[1] = "bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd /set {default} nointegritychecks on";
 
             Process cmd = new Process();
             cmd.StartInfo.FileName = "cmd.exe";
+            cmd.StartInfo.WorkingDirectory = "c:/";
             cmd.StartInfo.Verb = "runas";
             cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
             cmd.StartInfo.UseShellExecute = false;
             cmd.StartInfo.RedirectStandardOutput = true;
+            cmd.StartInfo.RedirectStandardInput = true;
             cmd.EnableRaisingEvents = true;
 
-            foreach (string arg in dismArgs)
-            {
-                cmd.StartInfo.Arguments += arg;
-            }
+            cmd.StartInfo.Arguments = String.Join(" ", bcdArgs);
 
             cmd.Start();
+            cmd.StandardInput.WriteLine();
+            cmd.StandardInput.WriteLine("bcdboot " + @"i:\windows /s p: /f UEFI");
 
             Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
