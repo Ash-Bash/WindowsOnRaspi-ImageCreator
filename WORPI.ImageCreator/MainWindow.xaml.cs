@@ -157,8 +157,7 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
-            //setupTempFolderStructure();
-            copyInstallWimFile();
+            setupTempFolderStructure();
         }
 
         // Creates a Folder Structure for Temp Directory
