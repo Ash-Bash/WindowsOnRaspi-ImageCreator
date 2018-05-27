@@ -619,12 +619,13 @@ namespace WORPI.ImageCreator
             cmd.StartInfo.Arguments = String.Join(" ", bcdArgs);
 
             cmd.Start();
-            cmd.StandardInput.WriteLine();
-            cmd.StandardInput.WriteLine("bcdboot " + @"i:\windows /s p: /f UEFI");
+            cmd.StandardInput.WriteLine(bcdArgs[0]);
+            cmd.StandardInput.WriteLine(bcdArgs[1]);
 
             Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
             cmd.WaitForExit();
+
             if (cmd.HasExited)
             {
                 cleanUp();
