@@ -81,5 +81,26 @@ namespace WORPI.ImageCreator.Properties {
                 return ResourceManager.GetString("firststartup", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to cd c:\ &amp;&amp;
+        ///bcdboot i:\windows /s p: /f UEFI.
+        /// </summary>
+        public static string InstallUEFI {
+            get {
+                return ResourceManager.GetString("InstallUEFI", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to cd c:\ &amp;&amp;
+        ///bcdedit /store P:\EFI\Microsoft\Boot\bcd /set {default} testsigning on &amp;&amp;
+        ///bcdedit /store P:\EFI\Microsoft\Boot\bcd /set {default} nointegritychecks on.
+        /// </summary>
+        public static string SignUEFIFiles {
+            get {
+                return ResourceManager.GetString("SignUEFIFiles", resourceCulture);
+            }
+        }
     }
 }

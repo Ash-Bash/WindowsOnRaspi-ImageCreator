@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WORPI.ImageCreator"
         mc:Ignorable="d"
-        Title="Windows On RPi Image Creator" Height="480" Width="640" MinWidth="640" MinHeight="480" MaxHeight="480" MaxWidth="640">
+        Title="Windows On RPi Image Creator" Height="490" Width="640" MinWidth="640" MinHeight="490" MaxHeight="490" MaxWidth="640">
     <Grid Background="#FF181818">
         <StackPanel Margin="10">
             <Grid Height="128">

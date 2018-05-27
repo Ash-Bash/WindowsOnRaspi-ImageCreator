@@ -56,9 +56,7 @@ namespace WORPI.ImageCreator
             tempFolders = new string[5];
             statusTextBlock.Text = "";
 
-
             ManagementObjectSearcher win32DiskDrives = new ManagementObjectSearcher("select * from Win32_DiskDrive");
-
             foreach (ManagementObject win32DiskDrive in win32DiskDrives.Get())
             {
                 Int64 size;
@@ -157,8 +155,7 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
-            //setupTempFolderStructure();
-            addUEFIFilesToBoot();
+            setupTempFolderStructure();
         }
 
         // Creates a Folder Structure for Temp Directory
@@ -180,6 +177,7 @@ namespace WORPI.ImageCreator
             copySourceFiles();
         }
 
+        // Copies Source Files from Zip files to their initial dirs
         private void copySourceFiles() {
             statusTextBlock.Text = "Extracting Files";
 
@@ -202,12 +200,16 @@ namespace WORPI.ImageCreator
 
                     //Creates First Start Up Reg File
                     string firstStartUpString = Properties.Resources.firststartup;
-                    string regFileContent = string.Format(firstStartUpString, System.IO.Path.Combine(appPath, "temp"));
+                    string instalUEFIString = Properties.Resources.InstallUEFI;
+                    string signUEFIFilesString = Properties.Resources.SignUEFIFiles;
                     File.WriteAllText(System.IO.Path.Combine(appPath, "temp") + "/firststartup.reg", firstStartUpString);
+                    File.WriteAllText(System.IO.Path.Combine(appPath, "temp") + "/InstallUEFI.cmd", instalUEFIString);
+                    File.WriteAllText(System.IO.Path.Combine(appPath, "temp") + "/SignUEFIFiles.cmd", signUEFIFilesString);
 
-                    copyRaspiPackages();
+                    createWindowsISOFile();
                     return true;
                 });
+
                 imageProgressBar.Value = 10;
                 percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
             } catch (IOException err)
@@ -216,6 +218,7 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Creates a Windows ISO File
         private void createWindowsISOFile() {
 
             Debug.WriteLine(System.IO.Path.Combine(tempFolders[1], "creatingISO.cmd"));
@@ -236,12 +239,18 @@ namespace WORPI.ImageCreator
                 cmd.StandardInput.Flush();
                 cmd.StandardInput.Close();
                 cmd.WaitForExit();
+
+                if (cmd.HasExited)
+                {
+                    copyInstallWimFile();
+                }
             }
             else {
                 Debug.WriteLine("ISO CMD Path Exists: " + false);
             }
         }
 
+        // Copies the install.wim file from the ISO File (Still Needs work on)
         private void copyInstallWimFile() {
             DirectoryInfo extrFolders = new DirectoryInfo(tempFolders[1]);
             FileInfo[] fileInfo = extrFolders.GetFiles();
@@ -259,6 +268,7 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Copies Provided packages to their right dirs ready for processing for the next few steps
         private void copyRaspiPackages() {
 
             var UEFIPath = System.IO.Path.Combine(tempFolders[3], "RaspberryPiPkg", "Binary", "prebuilt", "2018Mar1-GCC49", "DEBUG");
@@ -273,14 +283,13 @@ namespace WORPI.ImageCreator
             mountInstallWimFile();
         }
 
+        // Mounts install.wim file to Image Dir
         private void mountInstallWimFile() {
             var wimpath = System.IO.Path.Combine(appPath, "temp", "install.wim");
             var cdPath = System.IO.Path.Combine(appPath, "temp");
 
             string[] dismArgs = new string[3];
             dismArgs[0] = "/mount-image /imagefile:install.wim /Index:1 /MountDir:Image";
-            //dismArgs[1] = "/image:Image /add-driver /driver:system32 /recurse /forceunsigned";
-            //dismArgs[2] = "/unmount-wim /mountdir:Image /commit";
 
             //if () 
             if (File.Exists(wimpath))
@@ -309,20 +318,6 @@ namespace WORPI.ImageCreator
                 if (cmd.HasExited) { 
                     addDriversInstallWimFile();
                 }
-                /*cmd.StartInfo.RedirectStandardInput = true;
-                cmd.StartInfo.RedirectStandardOutput = true;
-                //cmd.StartInfo.CreateNoWindow = true;
-                cmd.StartInfo.UseShellExecute = false;
-                cmd.Start();
-
-                cmd.StandardInput.WriteLine("cd " + cdPath);
-                cmd.StandardInput.WriteLine("dism /mount-image /imagefile:install.wim /Index:1 /MountDir:Image");
-                cmd.StandardInput.WriteLine("dism /image:Image /add-driver /driver:system32 /recurse /forceunsigned");
-                cmd.StandardInput.WriteLine("dism /unmount-wim /mountdir:Image /commit");
-                //cmd.StandardInput.WriteLine("dism /mount-image /imagefile:install.wim /Index:1 /MountDir:Image");
-                cmd.StandardInput.Flush();
-                cmd.StandardInput.Close();
-                cmd.WaitForExit();*/
 
                 Debug.WriteLine("CD Path: " + cdPath);
             }
@@ -332,6 +327,7 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Adds Drivers to Image Dir ready to be commit to install.wim
         private void addDriversInstallWimFile()
         {
             var wimpath = System.IO.Path.Combine(appPath, "temp", "install.wim");
@@ -379,6 +375,7 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Unmounts & Commits changes to Install.wim file
         private void unmountInstallWimFile()
         {
             var wimpath = System.IO.Path.Combine(appPath, "temp", "install.wim");
@@ -425,6 +422,7 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Creates Required Partitions for Windows Files using diskpart
         private void createSCCardPartitions() {
 
             Process cmd = new Process();
@@ -461,15 +459,15 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Added Required Windows Files from install.wim
         private void addWindowsFilesToWindows()
         {
+
             var wimpath = System.IO.Path.Combine(appPath, "temp", "install.wim");
             var cdPath = System.IO.Path.Combine(appPath, "temp");
 
             string[] dismArgs = new string[3];
             dismArgs[0] = "/apply-image /imagefile:install.wim /index:1 /applydir:" + @"I:\";
-            //dismArgs[1] = "/image:Image /add-driver /driver:system32 /recurse /forceunsigned";
-            //dismArgs[2] = "/unmount-wim /mountdir:Image /commit";
 
             //if () 
             if (File.Exists(wimpath))
@@ -508,32 +506,51 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Added Required UEFIFiles from both i:/windows and Sourced Files that where provided  (Still Needs work on)
         private void addUEFIFilesToBoot()
         {
+
+            Debug.WriteLine(System.IO.Path.Combine(appPath, "temp", "InstallUEFI.cmd"));
+            var path = System.IO.Path.Combine(appPath, "temp", "InstallUEFI.cmd");
+
             CopyFilesRecursively(new DirectoryInfo(tempFolders[0]), new DirectoryInfo("P:/"));
 
-            Process cmd = new Process();
-            cmd.StartInfo.FileName = "cmd.exe";
-            cmd.StartInfo.Verb = "runas";
+            bool hasFiles = false;
+            var files = Directory.GetFiles("P:/");
 
-            cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
-            cmd.StartInfo.UseShellExecute = false;
-            cmd.StartInfo.RedirectStandardOutput = true;
-            cmd.StartInfo.RedirectStandardInput = true;
-            cmd.EnableRaisingEvents = true;
-
-            cmd.Start();
-            cmd.StandardInput.WriteLine("bcdboot" + @"i:\windows" + " /s " + @"p:\" + " /f UEFI");
-
-            Console.WriteLine(cmd.StandardOutput.ReadToEnd());
-
-            cmd.WaitForExit();
-            if (cmd.HasExited)
+            if (files.Length > 0)
             {
-                signWindowsFiles();
+                hasFiles = true;
+            }
+            else {
+                hasFiles = false;
+            }
+
+            if (hasFiles)
+            {
+                Process cmd = new Process();
+                cmd.StartInfo.FileName = "cmd.exe";
+                cmd.StartInfo.RedirectStandardInput = true;
+                cmd.StartInfo.RedirectStandardOutput = true;
+                cmd.StartInfo.CreateNoWindow = true;
+                cmd.StartInfo.UseShellExecute = false;
+                cmd.Start();
+
+                cmd.StandardInput.WriteLine("bcdboot " + @"i:\windows /s p: /f UEFI");
+                Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+
+                cmd.StandardInput.Flush();
+                cmd.StandardInput.Close();
+                cmd.WaitForExit();
+
+                if (cmd.HasExited)
+                {
+                    signWindowsFiles();
+                }
             }
         }
 
+        // Signs Windows Files in the UEFI Partition  (Still Needs work on)
         private void signWindowsFiles() {
             Process cmd = new Process();
             cmd.StartInfo.FileName = "cmd.exe";
@@ -546,8 +563,8 @@ namespace WORPI.ImageCreator
             cmd.EnableRaisingEvents = true;
 
             cmd.Start();
-            cmd.StandardInput.WriteLine("bcdedit /store " + @"E:\EFI\Microsoft\Boot\bcd" + " /set {default} testsigning on");
-            cmd.StandardInput.WriteLine("bcdedit /store " + @"E:\EFI\Microsoft\Boot\bcd" + " /set {default} nointegritychecks on");
+            cmd.StandardInput.WriteLine("bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd" + " /set {default} testsigning on");
+            cmd.StandardInput.WriteLine("bcdedit /store " + @"P:\EFI\Microsoft\Boot\bcd" + " /set {default} nointegritychecks on");
 
             Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
@@ -558,10 +575,12 @@ namespace WORPI.ImageCreator
             }
         }
 
+        // Deletes Temp dirs and Files and Unmounts any Images that were mounted when installing files on the SD Card (Still Needs work on)
         private void cleanUp() {
 
         }
 
+        // Allows Copying files and Folders from one Dir to Another
         public static void CopyFilesRecursively(DirectoryInfo source, DirectoryInfo target)
         {
             try

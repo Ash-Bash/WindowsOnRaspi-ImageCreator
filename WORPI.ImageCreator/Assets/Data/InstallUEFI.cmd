@@ -1,0 +1,1 @@
+bcdboot i:\windows /s p: /f UEFI
