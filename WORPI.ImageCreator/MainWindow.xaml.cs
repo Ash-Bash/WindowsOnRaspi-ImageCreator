@@ -157,8 +157,8 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
-            setupTempFolderStructure();
-            //addUEFIFilesToBoot();
+            //setupTempFolderStructure();
+            addUEFIFilesToBoot();
         }
 
         // Creates a Folder Structure for Temp Directory
@@ -574,20 +574,21 @@ namespace WORPI.ImageCreator
 
                 Process cmd = new Process();
                 cmd.StartInfo.FileName = "cmd.exe";
+                cmd.StartInfo.WorkingDirectory = "c:/";
                 cmd.StartInfo.Verb = "runas";
                 cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
-                cmd.StartInfo.UseShellExecute = true;
-                cmd.StartInfo.RedirectStandardOutput = false;
+                cmd.StartInfo.UseShellExecute = false;
+                cmd.StartInfo.RedirectStandardOutput = true;
+                cmd.StartInfo.RedirectStandardInput = true;
                 cmd.EnableRaisingEvents = true;
 
-                foreach (string arg in bcdArgs)
-                {
-                    cmd.StartInfo.Arguments += arg;
-                }
+                cmd.StartInfo.Arguments = String.Join(" ", bcdArgs);
 
                 cmd.Start();
 
-                //Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+                cmd.StandardInput.WriteLine("bcdboot " + @"i:\windows /s p: /f UEFI");
+
+                Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
                 cmd.WaitForExit();
 
