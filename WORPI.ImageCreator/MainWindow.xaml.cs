@@ -157,8 +157,8 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
-            setupTempFolderStructure();
-            //addUEFIFilesToBoot();
+            //setupTempFolderStructure();
+            addUEFIFilesToBoot();
         }
 
         // Creates a Folder Structure for Temp Directory
@@ -547,7 +547,7 @@ namespace WORPI.ImageCreator
         }
 
         // Added Required UEFIFiles from both i:/windows and Sourced Files that where provided  (Still Needs work on)
-        private void addUEFIFilesToBoot()
+        private async void addUEFIFilesToBoot()
         {
 
             Debug.WriteLine(System.IO.Path.Combine(appPath, "temp", "InstallUEFI.cmd"));
@@ -570,7 +570,7 @@ namespace WORPI.ImageCreator
             {
 
                 string[] bcdArgs = new string[3];
-                bcdArgs[0] = "bcdboot " + @"i:\windows /s p: /f UEFI";
+                bcdArgs[0] = "bcdboot I:\\Windows /s P: /f UEFI";
 
                 Process cmd = new Process();
                 cmd.StartInfo.FileName = "cmd.exe";
@@ -578,15 +578,19 @@ namespace WORPI.ImageCreator
                 cmd.StartInfo.Verb = "runas";
                 cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
                 cmd.StartInfo.UseShellExecute = false;
+                cmd.StartInfo.RedirectStandardError = true;
                 cmd.StartInfo.RedirectStandardOutput = true;
                 cmd.StartInfo.RedirectStandardInput = true;
                 cmd.EnableRaisingEvents = true;
 
-                cmd.StartInfo.Arguments = String.Join(" ", bcdArgs);
 
+
+                //cmd.StartInfo.Arguments = String.Join(" ", bcdArgs);
+                string parameters = String.Format("/k \"{0}\"", path);
+                //cmd = Process.Start(path);
                 cmd.Start();
 
-                cmd.StandardInput.WriteLine(@"bcdboot i:\windows /s p: /f UEFI");
+                cmd.StandardInput.WriteLine(path);
 
                 Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
@@ -595,16 +599,19 @@ namespace WORPI.ImageCreator
                 if (cmd.HasExited)
                 {
                     signWindowsFiles();
+                    cmd.Close();
                 }
             }
         }
 
         // Signs Windows Files in the UEFI Partition  (Still Needs work on)
         private void signWindowsFiles() {
+            Debug.WriteLine(System.IO.Path.Combine(appPath, "temp", "SignUEFIFiles.cmd"));
+            var path = System.IO.Path.Combine(appPath, "temp", "SignUEFIFiles.cmd");
 
             string[] bcdArgs = new string[3];
-            bcdArgs[0] = @"bcdedit /store P:\EFI\Microsoft\Boot\bcd /set {default} testsigning on";
-            bcdArgs[1] = @"bcdedit /store P:\EFI\Microsoft\Boot\bcd /set {default} nointegritychecks on";
+            bcdArgs[0] = "bcdedit /store P:\\EFI\\Microsoft\\Boot\\bcd /set {default} testsigning on";
+            bcdArgs[1] = "bcdedit /store P:\\EFI\\Microsoft\\Boot\\bcd /set {default} nointegritychecks on";
 
             Process cmd = new Process();
             cmd.StartInfo.FileName = "cmd.exe";
@@ -616,11 +623,10 @@ namespace WORPI.ImageCreator
             cmd.StartInfo.RedirectStandardInput = true;
             cmd.EnableRaisingEvents = true;
 
-            cmd.StartInfo.Arguments = String.Join(" ", bcdArgs);
+            //cmd.StartInfo.Arguments = String.Join(" ", bcdArgs);
 
             cmd.Start();
-            cmd.StandardInput.WriteLine(bcdArgs[0]);
-            cmd.StandardInput.WriteLine(bcdArgs[1]);
+            cmd.StandardInput.WriteLine(path);
 
             Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
