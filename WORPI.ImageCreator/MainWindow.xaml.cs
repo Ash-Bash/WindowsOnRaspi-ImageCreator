@@ -157,8 +157,8 @@ namespace WORPI.ImageCreator
             tempFolders[3] = tempExtractedFoldersPath;
             tempFolders[4] = tempImagePath;
 
-            //setupTempFolderStructure();
-            addUEFIFilesToBoot();
+            setupTempFolderStructure();
+            //addUEFIFilesToBoot();
         }
 
         // Creates a Folder Structure for Temp Directory
