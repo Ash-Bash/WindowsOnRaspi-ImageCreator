@@ -183,7 +183,6 @@ namespace WORPI.ImageCreator
         // Copies Source Files from Zip files to their initial dirs
         private void copySourceFiles() {
             statusTextBlock.Text = "Extracting Files";
-
             try
             {
                 Task.Run(() => {
@@ -224,6 +223,10 @@ namespace WORPI.ImageCreator
         // Creates a Windows ISO File
         private void createWindowsISOFile() {
 
+            statusTextBlock.Text = "Creating Windows Arm64 ISO File";
+            imageProgressBar.Value = 19;
+            percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+
             Debug.WriteLine(System.IO.Path.Combine(tempFolders[1], "creatingISO.cmd"));
             var path = System.IO.Path.Combine(tempFolders[1], "creatingISO.cmd");
 
@@ -245,6 +248,9 @@ namespace WORPI.ImageCreator
 
                 if (cmd.HasExited)
                 {
+                    statusTextBlock.Text = "Copying Install.Wim files from ISO";
+                    imageProgressBar.Value = 28;
+                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     copyInstallWimFile();
                 }
             }
@@ -300,6 +306,9 @@ namespace WORPI.ImageCreator
                 {
                     File.Copy(driveLetter + @":\sources\install.wim", System.IO.Path.Combine(appPath, "temp", "install.wim"));
                 }).ContinueWith(c => {
+                    statusTextBlock.Text = "Copying Raspberry Pi Package Files";
+                    imageProgressBar.Value = 37;
+                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     copyRaspiPackages();
                 });
             }
@@ -319,6 +328,10 @@ namespace WORPI.ImageCreator
 
             var driver2Path = System.IO.Path.Combine(tempFolders[3], "winOnRaspi", "winpe_stuff");
             CopyFilesRecursively(new DirectoryInfo(driver2Path), new DirectoryInfo(tempFolders[2]));
+
+            statusTextBlock.Text = "Mounting Install.Wim File to Image Folder";
+            imageProgressBar.Value = 46;
+            percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
 
             mountInstallWimFile();
         }
@@ -355,7 +368,10 @@ namespace WORPI.ImageCreator
                 Console.WriteLine(cmd.StandardOutput.ReadToEnd());
 
                 cmd.WaitForExit();
-                if (cmd.HasExited) { 
+                if (cmd.HasExited) {
+                    statusTextBlock.Text = "Adding Driver Files to Image";
+                    imageProgressBar.Value = 55;
+                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     addDriversInstallWimFile();
                 }
 
@@ -404,6 +420,9 @@ namespace WORPI.ImageCreator
 
                 if (cmd.HasExited)
                 {
+                    statusTextBlock.Text = "Committing Install.Wim changes & unmounting";
+                    imageProgressBar.Value = 64;
+                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     unmountInstallWimFile();
                 }
 
@@ -451,6 +470,9 @@ namespace WORPI.ImageCreator
 
                 if (cmd.HasExited)
                 {
+                    statusTextBlock.Text = "Creating SD Card Partitions";
+                    imageProgressBar.Value = 73;
+                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     createSCCardPartitions();
                 }
 
@@ -495,6 +517,9 @@ namespace WORPI.ImageCreator
             cmd.WaitForExit();
             if (cmd.HasExited)
             {
+                statusTextBlock.Text = "Adding Files from Install.Wim File to I:/ (Windows)";
+                imageProgressBar.Value = 82;
+                percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                 addWindowsFilesToWindows();
             }
         }
@@ -535,6 +560,9 @@ namespace WORPI.ImageCreator
                 cmd.WaitForExit();
                 if (cmd.HasExited)
                 {
+                    statusTextBlock.Text = "Adding UEFI Files to P:/ (Boot)";
+                    imageProgressBar.Value = 91;
+                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     addUEFIFilesToBoot();
                 }
 
@@ -598,6 +626,9 @@ namespace WORPI.ImageCreator
 
                 if (cmd.HasExited)
                 {
+                    statusTextBlock.Text = "Siging Windows Files";
+                    imageProgressBar.Value = 95;
+                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     signWindowsFiles();
                     cmd.Close();
                 }
@@ -634,6 +665,9 @@ namespace WORPI.ImageCreator
 
             if (cmd.HasExited)
             {
+                statusTextBlock.Text = "Cleaning Up";
+                imageProgressBar.Value = 100;
+                percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                 cleanUp();
             }
         }
