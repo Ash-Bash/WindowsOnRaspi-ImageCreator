@@ -22,7 +22,7 @@
                 </Grid>
             </StackPanel>
             <StackPanel Margin="0,0,0,10">
-                <TextBlock Text="Windows Image Zip File" Foreground="DarkGray" Margin="0,0,0,5"/>
+                <TextBlock Text="Windows Image ISO File" Foreground="DarkGray" Margin="0,0,0,5"/>
                 <Grid>
                     <ComboBox x:Name="winImageComboBox" IsEditable="True" Margin="0,0,54,0" />
                     <Button x:Name="winImageBrowseButton" Content="Browse" Width="48" HorizontalAlignment="Right" Click="winImageBrowseButton_Click"/>

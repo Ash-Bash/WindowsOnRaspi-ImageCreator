@@ -28,6 +28,7 @@ using System.Management;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
 using System.Management.Automation.Runspaces;
+using System.Reflection;
 
 namespace WORPI.ImageCreator
 {
@@ -53,6 +54,8 @@ namespace WORPI.ImageCreator
         public MainWindow()
         {
             InitializeComponent();
+
+            AdminRelauncher();
 
             appPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "WinOnRaspiImageCreator");
             tempFolders = new string[5];
@@ -105,6 +108,7 @@ namespace WORPI.ImageCreator
         private void winImageBrowseButton_Click(object sender, RoutedEventArgs e)
         {
             CommonOpenFileDialog openFileDialog = new CommonOpenFileDialog();
+           
             CommonFileDialogResult result = openFileDialog.ShowDialog();
 
             if (result == CommonFileDialogResult.Ok)
@@ -162,32 +166,40 @@ namespace WORPI.ImageCreator
         }
 
         // Creates a Folder Structure for Temp Directory
-        private void setupTempFolderStructure() {
+        private async void setupTempFolderStructure() {
 
 
             statusTextBlock.Text = "Setting Up Structure";
-
-            // Creates Directories for Required Folders+
-            Directory.CreateDirectory(tempFolders[0]);
-            Directory.CreateDirectory(tempFolders[1]);
-            Directory.CreateDirectory(tempFolders[2]);
-            Directory.CreateDirectory(tempFolders[3]);
-            Directory.CreateDirectory(tempFolders[4]);
-
             imageProgressBar.Value = 5;
             percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+
+            var createDirTask = Task.Run(() =>
+            {
+                // Creates Directories for Required Folders+
+                Directory.CreateDirectory(tempFolders[0]);
+                Directory.CreateDirectory(tempFolders[1]);
+                Directory.CreateDirectory(tempFolders[2]);
+                Directory.CreateDirectory(tempFolders[3]);
+                Directory.CreateDirectory(tempFolders[4]);
+            });
+
+            await createDirTask;
 
             copySourceFiles();
         }
 
         // Copies Source Files from Zip files to their initial dirs
-        private void copySourceFiles() {
+        private async void copySourceFiles() {
             statusTextBlock.Text = "Extracting Files";
+            imageProgressBar.Value = 10;
+            percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+
             try
             {
-                Task.Run(() => {
+                var transferZipsTask = Task.Run(() =>
+                {
                     // Extracts all required Zip Files
-                    ZipFile.ExtractToDirectory(winImagePath, tempFolders[1]);
+                    File.Copy(winImagePath, System.IO.Path.Combine(tempFolders[1], "Windows10-Arm64.iso"));
                     ZipFile.ExtractToDirectory(raspiPkgPath, tempFolders[3]);
                     ZipFile.ExtractToDirectory(winOnRaspiPath, tempFolders[3]);
 
@@ -198,7 +210,7 @@ namespace WORPI.ImageCreator
 
                     //createWindowsISOFile();
                     //copyInstallWimFile();
-                    
+
 
                     //Creates First Start Up Reg File
                     string firstStartUpString = Properties.Resources.firststartup;
@@ -208,54 +220,20 @@ namespace WORPI.ImageCreator
                     File.WriteAllText(System.IO.Path.Combine(appPath, "temp") + "/InstallUEFI.cmd", instalUEFIString);
                     File.WriteAllText(System.IO.Path.Combine(appPath, "temp") + "/SignUEFIFiles.cmd", signUEFIFilesString);
 
-                    createWindowsISOFile();
                     return true;
                 });
 
-                imageProgressBar.Value = 10;
+                await transferZipsTask;
+
+                statusTextBlock.Text = "Copying Install.Wim files from ISO";
+                imageProgressBar.Value = 20;
                 percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+
+                copyInstallWimFile();
+
             } catch (IOException err)
             {
                 MessageBox.Show("Something went wrong" + System.Environment.NewLine + "IOException source: {0}", err.Source);
-            }
-        }
-
-        // Creates a Windows ISO File
-        private void createWindowsISOFile() {
-
-            statusTextBlock.Text = "Creating Windows Arm64 ISO File";
-            imageProgressBar.Value = 19;
-            percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
-
-            Debug.WriteLine(System.IO.Path.Combine(tempFolders[1], "creatingISO.cmd"));
-            var path = System.IO.Path.Combine(tempFolders[1], "creatingISO.cmd");
-
-            if (File.Exists(path))
-            {
-                Debug.WriteLine("ISO CMD Path Exists: " + true);
-                Process cmd = new Process();
-                cmd.StartInfo.FileName = "cmd.exe";
-                cmd.StartInfo.RedirectStandardInput = true;
-                cmd.StartInfo.RedirectStandardOutput = true;
-                cmd.StartInfo.CreateNoWindow = true;
-                cmd.StartInfo.UseShellExecute = false;
-                cmd.Start();
-
-                cmd.StandardInput.WriteLine(path);
-                cmd.StandardInput.Flush();
-                cmd.StandardInput.Close();
-                cmd.WaitForExit();
-
-                if (cmd.HasExited)
-                {
-                    statusTextBlock.Text = "Copying Install.Wim files from ISO";
-                    imageProgressBar.Value = 28;
-                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
-                    copyInstallWimFile();
-                }
-            }
-            else {
-                Debug.WriteLine("ISO CMD Path Exists: " + false);
             }
         }
 
@@ -305,12 +283,15 @@ namespace WORPI.ImageCreator
                 var copyFileTask = Task.Run(() =>
                 {
                     File.Copy(driveLetter + @":\sources\install.wim", System.IO.Path.Combine(appPath, "temp", "install.wim"));
-                }).ContinueWith(c => {
-                    statusTextBlock.Text = "Copying Raspberry Pi Package Files";
-                    imageProgressBar.Value = 37;
-                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
-                    copyRaspiPackages();
                 });
+
+                await copyFileTask;
+
+                statusTextBlock.Text = "Copying Raspberry Pi Package Files";
+                imageProgressBar.Value = 30;
+                percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+                copyRaspiPackages();
+
             }
             else {
                 Debug.WriteLine("File Exists: " + false);
@@ -330,14 +311,14 @@ namespace WORPI.ImageCreator
             CopyFilesRecursively(new DirectoryInfo(driver2Path), new DirectoryInfo(tempFolders[2]));
 
             statusTextBlock.Text = "Mounting Install.Wim File to Image Folder";
-            imageProgressBar.Value = 46;
+            imageProgressBar.Value = 45;
             percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
 
             mountInstallWimFile();
         }
 
         // Mounts install.wim file to Image Dir
-        private void mountInstallWimFile() {
+        private async void mountInstallWimFile() {
             var wimpath = System.IO.Path.Combine(appPath, "temp", "install.wim");
             var cdPath = System.IO.Path.Combine(appPath, "temp");
 
@@ -348,32 +329,39 @@ namespace WORPI.ImageCreator
             if (File.Exists(wimpath))
             {
                 Debug.WriteLine("install.wim Path Exists: " + true);
-                Process cmd = new Process();
-                cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
-                cmd.StartInfo.WorkingDirectory = cdPath;
-                cmd.StartInfo.Verb = "runas";
 
-                foreach (string arg in dismArgs)
+
+                var mountWimTask = Task.Run(() =>
                 {
-                    cmd.StartInfo.Arguments += arg;
-                }
-                
-                cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
-                cmd.StartInfo.UseShellExecute = false;
-                cmd.StartInfo.RedirectStandardOutput = true;
-                cmd.EnableRaisingEvents = true;
+                    Process cmd = new Process();
+                    cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
+                    cmd.StartInfo.WorkingDirectory = cdPath;
+                    cmd.StartInfo.Verb = "runas";
 
-                cmd.Start();
+                    foreach (string arg in dismArgs)
+                    {
+                        cmd.StartInfo.Arguments += arg;
+                    }
 
-                Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+                    cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                    cmd.StartInfo.UseShellExecute = false;
+                    cmd.StartInfo.RedirectStandardOutput = true;
+                    cmd.EnableRaisingEvents = true;
 
-                cmd.WaitForExit();
-                if (cmd.HasExited) {
-                    statusTextBlock.Text = "Adding Driver Files to Image";
-                    imageProgressBar.Value = 55;
-                    percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
-                    addDriversInstallWimFile();
-                }
+                    cmd.Start();
+
+                    Console.WriteLine("mountInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
+
+                    cmd.WaitForExit();
+                });
+
+                await mountWimTask;
+
+                statusTextBlock.Text = "Adding Driver Files to Image";
+                imageProgressBar.Value = 50;
+                percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+                addDriversInstallWimFile();
+
 
                 Debug.WriteLine("CD Path: " + cdPath);
             }
@@ -414,7 +402,7 @@ namespace WORPI.ImageCreator
 
                 cmd.Start();
 
-                Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+                Console.WriteLine("addDriversInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
 
                 cmd.WaitForExit();
 
@@ -464,14 +452,14 @@ namespace WORPI.ImageCreator
 
                 cmd.Start();
 
-                Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+                Console.WriteLine("unmountInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
 
                 cmd.WaitForExit();
 
                 if (cmd.HasExited)
                 {
                     statusTextBlock.Text = "Creating SD Card Partitions";
-                    imageProgressBar.Value = 73;
+                    imageProgressBar.Value = 72;
                     percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     createSCCardPartitions();
                 }
@@ -512,7 +500,7 @@ namespace WORPI.ImageCreator
             cmd.StandardInput.WriteLine("assign letter=I");
             cmd.StandardInput.WriteLine("exit");
 
-            Console.WriteLine(cmd.StandardOutput.ReadToEnd());
+            Console.WriteLine("createSCCardPartitions() Process: " + cmd.StandardOutput.ReadToEnd());
 
             cmd.WaitForExit();
             if (cmd.HasExited)
@@ -561,7 +549,7 @@ namespace WORPI.ImageCreator
                 if (cmd.HasExited)
                 {
                     statusTextBlock.Text = "Adding UEFI Files to P:/ (Boot)";
-                    imageProgressBar.Value = 91;
+                    imageProgressBar.Value = 90;
                     percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                     addUEFIFilesToBoot();
                 }
@@ -690,6 +678,19 @@ namespace WORPI.ImageCreator
             });
 
             await isoMountTask;
+
+            var deleteFilesTask = Task.Run(() =>
+            {
+                Directory.Delete(System.IO.Path.Combine(appPath, "temp"));
+            });
+
+            await deleteFilesTask;
+
+            CompletedProcess();
+        }
+
+        public static void CompletedProcess() {
+            MessageBox.Show("Successfully Completed", "Successfully Copied Files & Data to The SD Card Ready for Raspberry Pi 3 B");
         }
 
         // Allows Copying files and Folders from one Dir to Another
@@ -705,6 +706,37 @@ namespace WORPI.ImageCreator
             catch (Exception e){
                 Debug.WriteLine("Somewthing Went Wrong!! " + e);
             }
+        }
+
+        private void AdminRelauncher()
+        {
+            if (!IsRunAsAdmin())
+            {
+                ProcessStartInfo proc = new ProcessStartInfo();
+                proc.UseShellExecute = true;
+                proc.WorkingDirectory = Environment.CurrentDirectory;
+                proc.FileName = Assembly.GetEntryAssembly().CodeBase;
+
+                proc.Verb = "runas";
+
+                try
+                {
+                    Process.Start(proc);
+                    Application.Current.Shutdown();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("This program must be run as an administrator! \n\n" + ex.ToString());
+                }
+            }
+        }
+
+        private bool IsRunAsAdmin()
+        {
+            WindowsIdentity id = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(id);
+
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
     }
 }
