@@ -1,4 +1,4 @@
 @Echo Off
-bcdboot i:\windows /s p: /f UEFI
+bcdboot.exe i:\windows /s p: /f UEFI
 pause
 exit
