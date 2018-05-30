@@ -55,7 +55,7 @@ namespace WORPI.ImageCreator
         {
             InitializeComponent();
 
-            //AdminRelauncher();
+            AdminRelauncher();
 
             appPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "WinOnRaspiImageCreator");
             tempFolders = new string[5];
