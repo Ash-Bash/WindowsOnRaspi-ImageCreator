@@ -55,7 +55,7 @@ namespace WORPI.ImageCreator
         {
             InitializeComponent();
 
-            AdminRelauncher();
+            //AdminRelauncher();
 
             appPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "WinOnRaspiImageCreator");
             tempFolders = new string[5];
@@ -147,6 +147,11 @@ namespace WORPI.ImageCreator
 
         private void compileWindowsButton_Click(object sender, RoutedEventArgs e)
         {
+            statusTextBlock.Text = "";
+            imageProgressBar.Value = 0;
+            percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+
+
             // Sets up Paths for required folders
             var tempUEFIPath = System.IO.Path.Combine(appPath, "temp", "UEFI");
             var tempUUPPath = System.IO.Path.Combine(appPath, "temp", "UUP");
@@ -322,16 +327,18 @@ namespace WORPI.ImageCreator
             imageProgressBar.Value = 45;
             percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
 
-            mountInstallWimFile();
+            MountInstallWimFile();
         }
 
         // Mounts install.wim file to Image Dir
-        private async void mountInstallWimFile() {
+        private void MountInstallWimFile()
+        {
             var wimpath = System.IO.Path.Combine(appPath, "temp", "install.wim");
             var cdPath = System.IO.Path.Combine(appPath, "temp");
 
             string[] dismArgs = new string[3];
-            dismArgs[0] = "/mount-image /imagefile:install.wim /Index:1 /MountDir:Image";
+            dismArgs[0] = "/online /get-features";
+            dismArgs[1] = "/mount-image /imagefile:install.wim /Index:1 /MountDir:Image";
 
             //if () 
             if (File.Exists(wimpath))
@@ -367,22 +374,28 @@ namespace WORPI.ImageCreator
 
                 Process cmd = new Process();
                 cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
-                cmd.StartInfo.WorkingDirectory = cdPath;
+                //cmd.StartInfo.WorkingDirectory = cdPath;
                 cmd.StartInfo.Verb = "runas";
 
-                foreach (string arg in dismArgs)
+                /*foreach (string arg in dismArgs)
                 {
                     cmd.StartInfo.Arguments += arg;
-                }
+                }*/
 
                 cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
                 cmd.StartInfo.UseShellExecute = false;
                 cmd.StartInfo.RedirectStandardOutput = true;
+                cmd.StartInfo.RedirectStandardInput = true;
+                cmd.StartInfo.RedirectStandardError = true;
                 cmd.EnableRaisingEvents = true;
 
                 cmd.Start();
 
+                cmd.StandardInput.WriteLine("/online /get-features");
+                cmd.StandardInput.WriteLine("/mount-image /imagefile:install.wim /Index:1 /MountDir:Image");
+
                 Console.WriteLine("mountInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
+                var results = cmd.StandardOutput.ReadToEnd();
 
                 cmd.WaitForExit();
 
@@ -395,7 +408,8 @@ namespace WORPI.ImageCreator
                         percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
                         addDriversInstallWimFile();
                     }
-                    else {
+                    else
+                    {
                         MessageBox.Show("Couldn't Mount image.wim to Image Folder", "Error!", MessageBoxButton.OK);
                         cleanUp(false);
                     }
@@ -412,6 +426,8 @@ namespace WORPI.ImageCreator
             else
             {
                 Debug.WriteLine("install.wim Path Exists: " + false);
+                MessageBox.Show("install.wim file doesnt exist", "Error!", MessageBoxButton.OK);
+                cleanUp(false);
             }
         }
 
@@ -723,9 +739,48 @@ namespace WORPI.ImageCreator
 
             await isoMountTask;
 
+            var unmountWimTask = Task.Run(() => {
+                using (var ps = PowerShell.Create())
+                {
+                    string[] dismArgs = new string[3];
+                    dismArgs[0] = "/cleanup-wim";
+
+                    Process cmd = new Process();
+                    cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
+                    cmd.StartInfo.Verb = "runas";
+
+                    foreach (string arg in dismArgs)
+                    {
+                        cmd.StartInfo.Arguments += arg;
+                    }
+
+                    cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                    cmd.StartInfo.UseShellExecute = false;
+                    cmd.StartInfo.RedirectStandardOutput = true;
+                    cmd.EnableRaisingEvents = true;
+
+                    cmd.Start();
+
+                    Console.WriteLine("unmountInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
+
+                    cmd.WaitForExit();
+                }
+            });
+
+            await unmountWimTask;
+
             var deleteFilesTask = Task.Run(() =>
             {
-                //Directory.Delete(System.IO.Path.Combine(appPath, "temp"));
+                System.IO.DirectoryInfo di = new DirectoryInfo(System.IO.Path.Combine(appPath, "temp"));
+
+                foreach (FileInfo file in di.GetFiles())
+                {
+                    file.Delete();
+                }
+                foreach (DirectoryInfo dir in di.GetDirectories())
+                {
+                    dir.Delete(true);
+                }
             });
 
             await deleteFilesTask;
