@@ -299,16 +299,24 @@ namespace WORPI.ImageCreator
         }
 
         // Copies Provided packages to their right dirs ready for processing for the next few steps
-        private void copyRaspiPackages() {
+        private async void copyRaspiPackages() {
 
-            var UEFIPath = System.IO.Path.Combine(tempFolders[3], "RaspberryPiPkg", "Binary", "prebuilt", "2018Mar1-GCC49", "DEBUG");
-            CopyFilesRecursively(new DirectoryInfo(UEFIPath), new DirectoryInfo(tempFolders[0]));
 
-            var driverPath = System.IO.Path.Combine(tempFolders[3], "winOnRaspi", "driver_prebuilts");
-            CopyFilesRecursively(new DirectoryInfo(driverPath), new DirectoryInfo(tempFolders[2]));
+            var packagesTask = Task.Run(() =>
+            {
+                var UEFIPath = System.IO.Path.Combine(tempFolders[3], "RaspberryPiPkg", "Binary", "prebuilt");
+                var UEFIFilePaths = Directory.GetDirectories(UEFIPath);
+                Debug.WriteLine("UEFI Files Paths: " + UEFIFilePaths);
+                CopyFilesRecursively(new DirectoryInfo(System.IO.Path.Combine(UEFIFilePaths[UEFIFilePaths.Length - 1], "DEBUG")), new DirectoryInfo(tempFolders[0]));
 
-            var driver2Path = System.IO.Path.Combine(tempFolders[3], "winOnRaspi", "winpe_stuff");
-            CopyFilesRecursively(new DirectoryInfo(driver2Path), new DirectoryInfo(tempFolders[2]));
+                var driverPath = System.IO.Path.Combine(tempFolders[3], "winOnRaspi", "driver_prebuilts");
+                CopyFilesRecursively(new DirectoryInfo(driverPath), new DirectoryInfo(tempFolders[2]));
+
+                var driver2Path = System.IO.Path.Combine(tempFolders[3], "winOnRaspi", "winpe_stuff");
+                CopyFilesRecursively(new DirectoryInfo(driver2Path), new DirectoryInfo(tempFolders[2]));
+            });
+
+            await packagesTask;
 
             statusTextBlock.Text = "Mounting Install.Wim File to Image Folder";
             imageProgressBar.Value = 45;
@@ -331,7 +339,7 @@ namespace WORPI.ImageCreator
                 Debug.WriteLine("install.wim Path Exists: " + true);
 
 
-                var mountWimTask = Task.Run(() =>
+                /*var mountWimTask = Task.Run(() =>
                 {
                     Process cmd = new Process();
                     cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
@@ -355,12 +363,48 @@ namespace WORPI.ImageCreator
                     cmd.WaitForExit();
                 });
 
-                await mountWimTask;
+                await mountWimTask;*/
 
-                statusTextBlock.Text = "Adding Driver Files to Image";
+                Process cmd = new Process();
+                cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
+                cmd.StartInfo.WorkingDirectory = cdPath;
+                cmd.StartInfo.Verb = "runas";
+
+                foreach (string arg in dismArgs)
+                {
+                    cmd.StartInfo.Arguments += arg;
+                }
+
+                cmd.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+                cmd.StartInfo.UseShellExecute = false;
+                cmd.StartInfo.RedirectStandardOutput = true;
+                cmd.EnableRaisingEvents = true;
+
+                cmd.Start();
+
+                Console.WriteLine("mountInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
+
+                cmd.WaitForExit();
+
+                if (cmd.HasExited)
+                {
+                    if (Directory.GetFiles(System.IO.Path.Combine(appPath, "temp", "Image")).Length > 0)
+                    {
+                        statusTextBlock.Text = "Adding Driver Files to Image";
+                        imageProgressBar.Value = 50;
+                        percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
+                        addDriversInstallWimFile();
+                    }
+                    else {
+                        MessageBox.Show("Couldn't Mount image.wim to Image Folder", "Error!", MessageBoxButton.OK);
+                        cleanUp(false);
+                    }
+                }
+
+                /*statusTextBlock.Text = "Adding Driver Files to Image";
                 imageProgressBar.Value = 50;
                 percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
-                addDriversInstallWimFile();
+                addDriversInstallWimFile();*/
 
 
                 Debug.WriteLine("CD Path: " + cdPath);
@@ -656,12 +700,12 @@ namespace WORPI.ImageCreator
                 statusTextBlock.Text = "Cleaning Up";
                 imageProgressBar.Value = 100;
                 percentageTextBlock.Text = imageProgressBar.Value.ToString() + "%";
-                cleanUp();
+                cleanUp(true);
             }
         }
 
         // Deletes Temp dirs and Files and Unmounts any Images that were mounted when installing files on the SD Card (Still Needs work on)
-        private async void cleanUp() {
+        private async void cleanUp(bool wasSuccess) {
             DirectoryInfo extrFolders = new DirectoryInfo(tempFolders[1]);
             FileInfo[] fileInfo = extrFolders.GetFiles();
 
@@ -681,16 +725,26 @@ namespace WORPI.ImageCreator
 
             var deleteFilesTask = Task.Run(() =>
             {
-                Directory.Delete(System.IO.Path.Combine(appPath, "temp"));
+                //Directory.Delete(System.IO.Path.Combine(appPath, "temp"));
             });
 
             await deleteFilesTask;
 
-            CompletedProcess();
+            if (wasSuccess)
+            {
+                CompletedProcess();
+            } else
+            {
+                RollbackProcess();
+            }
         }
 
-        public static void CompletedProcess() {
-            MessageBox.Show("Successfully Completed", "Successfully Copied Files & Data to The SD Card Ready for Raspberry Pi 3 B");
+        public void CompletedProcess() {
+            MessageBox.Show("Successfully Copied Files & Data to The SD Card Ready for Raspberry Pi 3 B", "Successfully Completed");
+        }
+
+        public void RollbackProcess() {
+            MessageBox.Show("Successfully Rollbacked Changes", "Rollback Completed");
         }
 
         // Allows Copying files and Folders from one Dir to Another
