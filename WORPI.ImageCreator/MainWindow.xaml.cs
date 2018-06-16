@@ -287,7 +287,38 @@ namespace WORPI.ImageCreator
 
                 var copyFileTask = Task.Run(() =>
                 {
-                    File.Copy(driveLetter + @":\sources\install.wim", System.IO.Path.Combine(appPath, "temp", "install.wim"));
+                    string[] dismArgs = new string[3];
+                    dismArgs[0] = "/Export-Image /SourceImageFile:" + driveLetter + @":\sources\install.wim /SourceIndex:1 /DestinationImageFile:" + System.IO.Path.Combine(appPath, "temp", "install.wim");
+
+                    Process cmd = new Process();
+
+                    if (Environment.Is64BitOperatingSystem)
+                    {
+                        cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "SysWOW64", "dism.exe");
+                    }
+                    else
+                    {
+                        cmd.StartInfo.FileName = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "dism.exe");
+                    }
+
+                    cmd.StartInfo.Verb = "runas";
+
+                    foreach (string arg in dismArgs)
+                    {
+                        cmd.StartInfo.Arguments += arg;
+                    }
+
+                    cmd.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                    cmd.StartInfo.UseShellExecute = false;
+                    cmd.StartInfo.RedirectStandardOutput = true;
+                    cmd.EnableRaisingEvents = true;
+
+
+                    cmd.Start();
+
+                    Console.WriteLine("mountInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
+
+                    cmd.WaitForExit();
                 });
 
                 await copyFileTask;
@@ -337,8 +368,7 @@ namespace WORPI.ImageCreator
             var cdPath = System.IO.Path.Combine(appPath, "temp");
 
             string[] dismArgs = new string[3];
-            dismArgs[0] = "/online /get-features";
-            dismArgs[1] = "/mount-image /imagefile:install.wim /Index:1 /MountDir:Image";
+            dismArgs[0] = "/mount-image /imagefile:install.wim /Index:1 /MountDir:Image";
 
             //if () 
             if (File.Exists(wimpath))
@@ -390,8 +420,6 @@ namespace WORPI.ImageCreator
                 cmd.EnableRaisingEvents = true;
 
                 cmd.Start();
-
-                cmd.StandardInput.WriteLine("/online /get-features");
                 cmd.StandardInput.WriteLine("/mount-image /imagefile:install.wim /Index:1 /MountDir:Image");
 
                 Console.WriteLine("mountInstallWimFile() Process: " + cmd.StandardOutput.ReadToEnd());
